@@ -10,6 +10,41 @@ Newest entries at the top.
 
 ---
 
+## 2026-06-10 — A2 (ZOO) Run 002: SPSA (gradient-magnitude-scaled) — FAILED
+
+**Setup:** same target (car, conf=0.918, 32×32 patch), switched to SPSA
+random-direction finite differences, writing to
+`logs/attacks/attack_zoo_001.jsonl`.
+
+**Hyperparameters:** `DELTA=16.0`, `LR=16.0`, `MAX_ITER=300`
+(2 queries/iteration, 600 total).
+
+**Result:**
+- 300 iterations, 600 queries
+- Confidence: 0.9179 → 0.9177 (Δ = 0.00023)
+- Patch pixels changed by mean 0.6, max 5 (out of 255) — **sub-pixel
+  updates per iteration**.
+- `success: false` — nowhere near `CONF_TARGET=0.20`.
+
+**Diagnosis:** the update rule `adv_img -= LR · grad_est` where
+`grad_est = (conf_plus - conf_minus)/(2·DELTA) · direction` is mis-scaled.
+With `conf_diff ≈ 0.001` and `LR/(2·DELTA) = 0.5`, each iteration's update
+is ~0.0005 — about 1/2000th of a pixel level. The gradient *direction* is
+roughly correct (confidence trended down), but gradient-magnitude scaling
+makes the step size proportional to a tiny, noisy confidence delta, so it
+never accumulates to a meaningful perturbation within budget. Bumping `LR`
+by raw multiplication doesn't fix this robustly — the right fix is to
+decouple step size from gradient magnitude entirely.
+
+**Next attempt (Run 003):** switch to a **greedy fixed-step search**
+(SimBA-style): each iteration, try `+DELTA·d` and `-DELTA·d` for a random
+direction `d`; if either reduces confidence, commit that *full* `±DELTA`
+step; otherwise discard and try a new direction. Guarantees real
+pixel-level progress on every successful iteration instead of sub-pixel
+drift.
+
+---
+
 ## 2026-06-10 — A2 (ZOO) Run 001: per-pixel finite differences — FAILED
 
 **Setup:** `notebooks/03_attack_zoo.ipynb`, target = highest-confidence
