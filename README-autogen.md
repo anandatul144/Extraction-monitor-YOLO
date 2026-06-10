@@ -10,6 +10,43 @@ Newest entries at the top.
 
 ---
 
+## 2026-06-10 — Priority realignment: signature > success
+
+**Context:** Run 003 (greedy fixed-step / SimBA, see below) achieved a real
+0.9179→0.9072 confidence drop on the in-memory image, but after saving to
+JPEG and reloading for verification, the target car's confidence was
+**0.929 — higher than the original 0.918**. JPEG re-compression destroyed
+the perturbation entirely.
+
+**Decision:** the project's goal (per README) is to detect *extraction
+attempt traffic patterns*, not to actually succeed at suppressing
+confidence or extracting a surrogate model. We had been optimizing for
+"does the perturbation work," which is a different axis from "does the
+query traffic look like attack X."
+
+This means:
+- **Run 001 (per-pixel finite differences, 307,200 queries, pHash≈0 burst)
+  was discarded as a "failure" but was actually a correct A2 (ZOO)
+  signature** — coordinate-wise probing producing a massive burst of
+  near-identical images in a single session is literally ZOO's defining
+  query pattern (Chen et al. 2017), independent of whether confidence
+  dropped. We threw away exactly the kind of labeled traffic Phase 1 needs.
+- **Run 003 (greedy fixed-step / SimBA)** is a *different* attack method
+  with its own signature (sparser, larger per-step jumps, ~400 queries) —
+  useful as a separate catalog entry, not a replacement for the ZOO
+  signature.
+
+**Going forward:** each attack notebook's job is to generate a
+*representative-but-bounded* query log (volume, pHash distribution, burst
+rate, session structure matching the attack's known pattern), correctly
+labeled via `session_id`/`source` — not to hit `CONF_TARGET`. Plan: re-run
+true per-pixel ZOO at a smaller scale (e.g. 8×8 patch, a few iterations —
+low thousands of queries) to capture the pHash≈0 burst signature for Phase
+1, and file the SimBA result as a separate attack variant rather than "the
+ZOO result."
+
+---
+
 ## 2026-06-10 — A2 (ZOO) Run 002: SPSA (gradient-magnitude-scaled) — FAILED
 
 **Setup:** same target (car, conf=0.918, 32×32 patch), switched to SPSA
@@ -42,6 +79,38 @@ direction `d`; if either reduces confidence, commit that *full* `±DELTA`
 step; otherwise discard and try a new direction. Guarantees real
 pixel-level progress on every successful iteration instead of sub-pixel
 drift.
+
+---
+
+## 2026-06-10 — Run 003: greedy fixed-step (SimBA-style) — perturbation does not survive JPEG
+
+**Setup:** same target/patch, greedy fixed-step search, `DELTA=16.0`,
+`MAX_ITER=200`.
+
+**Result (in-memory, during attack loop):**
+- 200 iterations, 400 queries
+- Confidence: 0.9179 → 0.9072 (Δ = 0.0107) — ~13x bigger drop than Run 001,
+  for ~750x fewer queries.
+- Plateaued from iteration ~150 onward (last 10 iterations identical —
+  greedy search exhausted improving random directions at this step size).
+- Patch visibly "glitchy" — high-frequency noise from 200 accumulated
+  `±16` steps.
+
+**Result (after `cv2.imwrite` JPEG save → `cv2.imread` reload, the
+realistic deployment path):**
+- Target car confidence: **0.918 → 0.929** — went *up*, not down.
+- JPEG re-compression's DCT quantization erased the high-frequency
+  adversarial noise.
+
+**Implication:** a digital-only adversarial perturbation found this way is
+brittle to any compression step in the pipeline. Real deployable patches
+need to be robust to this (larger-scale, lower-frequency patterns —
+closer to printed adversarial patches in the literature) — but that's a
+separate research question from the monitor's detection task. See the
+priority realignment entry above: for *this* project, what matters is that
+this run's query traffic (400 queries, single session, near-identical
+images) is itself a usable — if smaller — A2-like signature sample,
+independent of whether the perturbation "works."
 
 ---
 
