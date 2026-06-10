@@ -3,7 +3,10 @@
 **Researcher:** Atul — ZF Friedrichshafen AG  
 **Goal:** Detect surrogate model extraction attempts against a YOLO11-based perception API  
 **Deadline:** November 2026  
-**Status:** Phase 0 — Baseline established, attack reproduction next
+**Status:** Phase 0 — Baseline established. A2 (ZOO) attack reproduction in progress.
+
+For a running log of experiment attempts, hyperparameter changes, and what
+did/didn't work, see [README-autogen.md](README-autogen.md).
 
 ---
 
@@ -105,17 +108,26 @@ YOLO-Monitoring/
 │   ├── dash-cam-video.mp4          # normal baseline traffic source
 │   └── gettyimage.jpg              # single image test
 ├── logs/
-│   └── query_log_v2.jsonl          # append-only query log (monitor training data)
+│   ├── query_log_v2.jsonl          # committed baseline query log (37,086 normal queries)
+│   └── attacks/                    # gitignored — per-session attack query logs
+│       └── <session_id>.jsonl
 ├── notebooks/
 │   ├── 00_yolo_verify.ipynb        # YOLO install and first inference check
 │   ├── 01_api_wrapper.ipynb        # v1 wrapper (superseded)
 │   ├── 02_api_wrapper_v2_fixed.ipynb  # ← current wrapper (use this)
-│   ├── 03_attack_zoo.ipynb         # [TODO] ZOO attack reproduction
+│   ├── 03_attack_zoo.ipynb         # ZOO/SPSA attack reproduction (in progress)
 │   ├── 04_attack_knockoff.ipynb    # [TODO] Knockoff Nets reproduction
 │   ├── 05_attack_hsja.ipynb        # [TODO] HSJA reproduction
 │   └── 06_attack_meaod.ipynb       # [TODO] MEAOD reproduction
-└── README.md
+├── README.md
+└── README-autogen.md               # experiment log: attempts, failures, ideas
 ```
+
+**Attack logging convention:** attack notebooks read `query_id` continuity
+and normal-traffic stats from `logs/query_log_v2.jsonl`, but write their own
+queries to `logs/attacks/<session_id>.jsonl` (gitignored). This keeps the
+committed baseline log small and stable while still letting attack runs
+generate large volumes of queries.
 
 ---
 
